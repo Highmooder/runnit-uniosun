@@ -1,21 +1,26 @@
-import { getSession, signOut, isAdmin, rpc } from "../supabase.js";
+import { supabase, getSession, signOut, isAdmin, rpc } from "../supabase.js";
 import { loadCategories, formatNaira, withImageFallback } from "../products.js";
 import { escapeHtml as esc, attrUrl } from "../escape.js";
 
-// WHAT: the admin page. You review stores and products here.
+// WHAT: the admin page. You review stores and products here, and see every
+//       product from every vendor.
 // WHO:  only accounts in the admins table. Anyone else is sent away, and
 //       the database refuses their requests anyway (every admin function
-//       checks is_admin()).
+//       checks is_admin(), and product reads are limited by row rules).
 // THE RULE: nothing goes live until you approve it. Approve the STORE
 //       first, then each PRODUCT (or each EDIT to a live product).
-// FUTURE: suspend or reactivate a store, and un-approve a product.
+// FUTURE: take down a live product, suspend or reactivate a store.
 
 const state = {
-  tab: "stores", // stores | products | all
+  tab: "stores", // stores | products | catalog | all
   stores: [], // stores waiting for review
   products: [], // new products + edits waiting for review
   allStores: [],
+  catalog: [], // every product that hasn't been removed
   categories: [],
+  search: "",
+  storeFilter: "",
+  catalogFilter: "live",
   busy: false,
 };
 
@@ -49,24 +54,30 @@ document.addEventListener("DOMContentLoaded", async () => {
 // Data
 // ---------------------------------------------------------------------
 async function loadAll() {
-  const [stores, products, all] = await Promise.all([
+  const [stores, products, all, catalog] = await Promise.all([
     rpc("admin_pending_vendors"),
     rpc("admin_pending_products"),
     rpc("admin_list_vendors"),
+    // Admins can read every product (a database rule); removed ones are hidden.
+    supabase
+      .from("products")
+      .select("id, name, description, price, image, category_id, vendor_id, availability, stock_qty, status, active, created_at")
+      .eq("active", true)
+      .order("created_at", { ascending: false }),
   ]);
 
   const failed = [stores, products, all].find((r) => !r.ok);
+  let message = failed ? failed.error : "";
+  if (!message && catalog.error) message = "Couldn't load the product list. Please refresh the page.";
+
   const banner = $("ad-error");
-  if (failed) {
-    banner.textContent = failed.error;
-    banner.style.display = "block";
-  } else {
-    banner.style.display = "none";
-  }
+  banner.textContent = message;
+  banner.style.display = message ? "block" : "none";
 
   if (stores.ok) state.stores = stores.data || [];
   if (products.ok) state.products = products.data || [];
   if (all.ok) state.allStores = all.data || [];
+  if (catalog.data) state.catalog = catalog.data;
 }
 
 
@@ -77,6 +88,7 @@ function render() {
   const tabs = [
     ["stores", `Stores to review (${state.stores.length})`],
     ["products", `Products to review (${state.products.length})`],
+    ["catalog", `All products (${state.catalog.length})`],
     ["all", `All stores (${state.allStores.length})`],
   ];
   $("ad-tabs").innerHTML = tabs
@@ -92,6 +104,9 @@ function render() {
     el.innerHTML = state.products.length
       ? state.products.map((item, i) => productCard(item, i)).join("")
       : empty("No products waiting", "New products and edits appear here when a vendor sends them.");
+  } else if (state.tab === "catalog") {
+    el.innerHTML = catalogToolbar() + `<div class="vp-list" id="ad-catalog-results"></div>`;
+    renderCatalogResults();
   } else {
     el.innerHTML = state.allStores.length
       ? state.allStores.map((s) => storeCard(s, false)).join("")
@@ -192,6 +207,103 @@ function changesBetween(current, proposed) {
 
 
 // ---------------------------------------------------------------------
+// All products (every vendor)
+// ---------------------------------------------------------------------
+const storeById = (id) => state.allStores.find((s) => s.id === id);
+const storeIsLive = (id) => {
+  const s = storeById(id);
+  return !!s && s.active !== false && s.status === "approved";
+};
+// "Live" = students can see it: product approved AND store approved.
+const isLive = (p) => p.status === "approved" && p.active && storeIsLive(p.vendor_id);
+
+function stockText(p) {
+  if (p.stock_qty === null || p.stock_qty === undefined) return "Stock: not counted";
+  if (p.stock_qty === 0) return "Sold out";
+  return `${p.stock_qty} in stock`;
+}
+
+// The search box and store filter. Drawn once per visit to the tab, so
+// typing never loses focus; only the results below are redrawn.
+function catalogToolbar() {
+  const stores = [...state.allStores].sort((a, b) => a.store_name.localeCompare(b.store_name));
+  return `
+  <div class="vp-form-row">
+    <div class="form-group">
+      <label for="ad-search">Search products</label>
+      <input type="text" id="ad-search" placeholder="Product name" value="${esc(state.search)}" autocomplete="off" />
+    </div>
+    <div class="form-group">
+      <label for="ad-store">Store</label>
+      <select id="ad-store">
+        <option value="">All stores</option>
+        ${stores.map((s) => `<option value="${esc(s.id)}" ${s.id === state.storeFilter ? "selected" : ""}>${esc(s.store_name)}</option>`).join("")}
+      </select>
+    </div>
+  </div>`;
+}
+
+function renderCatalogResults() {
+  const q = state.search.trim().toLowerCase();
+  const base = state.catalog.filter((p) => (!state.storeFilter || p.vendor_id === state.storeFilter) && (!q || p.name.toLowerCase().includes(q)));
+
+  const tests = {
+    live: isLive,
+    all: () => true,
+    paused: (p) => p.status === "approved" && p.availability === "unavailable",
+    soldout: (p) => p.stock_qty === 0,
+    notlive: (p) => !isLive(p),
+  };
+  const labels = [["live", "Live"], ["all", "All"], ["paused", "Paused"], ["soldout", "Sold out"], ["notlive", "Not live"]];
+
+  const chips = labels
+    .map(([key, label]) => `<button type="button" class="filter-chip ${state.catalogFilter === key ? "is-active" : ""}" data-pfilter="${key}" aria-pressed="${state.catalogFilter === key}">${label} (${base.filter(tests[key]).length})</button>`)
+    .join("");
+  const list = base.filter(tests[state.catalogFilter]);
+
+  const box = $("ad-catalog-results");
+  box.innerHTML = `
+    <div class="filter-chips vp-filters" role="group" aria-label="Filter products">${chips}</div>
+    <p class="results-count" aria-live="polite">${list.length} product${list.length === 1 ? "" : "s"}</p>
+    ${list.length ? list.map(catalogCard).join("") : empty("Nothing here", "No products match these filters.")}`;
+  box.querySelectorAll(".vp-item__thumb img").forEach(withImageFallback);
+}
+
+function catalogCard(p) {
+  const store = storeById(p.vendor_id);
+  const badges = [];
+  if (isLive(p)) badges.push(["Live", ""]);
+  else if (p.status === "pending") badges.push(["Waiting for approval", "badge-accent"]);
+  else if (p.status === "rejected") badges.push(["Not approved", "badge-danger"]);
+  else badges.push(["Approved", ""], ["Store not live", "badge-outline"]);
+  if (p.status === "approved" && p.availability === "unavailable") badges.push(["Paused", "badge-outline"]);
+  if (p.stock_qty === 0) badges.push(["Sold out", "badge-danger"]);
+
+  return `
+  <article class="vp-item">
+    <div class="vp-item__thumb"><img src="${attrUrl(p.image)}" alt="${esc(p.name)}" loading="lazy" /></div>
+    <div class="vp-item__main">
+      <div class="vp-item__title">
+        <h3>${esc(p.name)}</h3>
+        ${badges.map(([text, cls]) => `<span class="badge ${cls}">${esc(text)}</span>`).join("")}
+      </div>
+      <div class="vp-item__meta">
+        <strong>${formatNaira(p.price)}</strong>
+        <span>${esc(categoryName(p.category_id))}</span>
+        <span>${esc(AVAILABILITY[p.availability] || p.availability)}</span>
+        <span>${esc(stockText(p))}</span>
+      </div>
+      <div class="vp-item__meta">
+        <span>Store: ${esc(store ? store.store_name : "Unknown store")}</span>
+        <span>Added ${esc(fmtDate(p.created_at))}</span>
+      </div>
+      <p class="vp-item__note">${esc(p.description)}</p>
+    </div>
+  </article>`;
+}
+
+
+// ---------------------------------------------------------------------
 // Toast and confirm
 // ---------------------------------------------------------------------
 let toastTimer;
@@ -256,87 +368,4 @@ async function onApprove(kind, item) {
     kind === "store"
       ? { title: `Approve ${name}?`, body: "The store is marked verified. Its approved products become visible to students." }
       : item.kind === "edit"
-        ? { title: `Approve this edit to ${name}?`, body: "The changes replace the live version straight away." }
-        : { title: `Approve ${name}?`, body: "It becomes visible to students right away, as long as its store is approved." };
-
-  const ok = await confirmDialog({ ...copy, okLabel: "Approve" });
-  if (!ok) return;
-
-  await act(async () => {
-    const r = await sendReview(kind, item, "approve", null);
-    if (!r.ok) return toast(r.error, true);
-    toast(`${name} approved.`);
-    await loadAll();
-    render();
-  });
-}
-
-function onReject(kind, item) {
-  const name = nameOf(kind, item);
-  $("ad-reject-title").textContent = `Reject ${name}?`;
-  $("ad-reject-target").textContent = kind === "store" ? "The vendor sees your reason on their page." : "The vendor sees your reason next to the product.";
-  $("ad-reject-note").value = "";
-  $("ad-reject-note").classList.remove("has-error");
-  $("ad-reject-note-error").textContent = "";
-  $("ad-reject-error").style.display = "none";
-  $("ad-reject-cancel").onclick = () => $("ad-reject").close();
-
-  $("ad-reject-form").onsubmit = async (event) => {
-    event.preventDefault();
-    if (state.busy) return;
-    $("ad-reject-note").classList.remove("has-error");
-    $("ad-reject-note-error").textContent = "";
-    $("ad-reject-error").style.display = "none";
-
-    const note = $("ad-reject-note").value.trim();
-    if (note.length < 3 || note.length > 500) {
-      $("ad-reject-note").classList.add("has-error");
-      $("ad-reject-note-error").textContent = "Give a short reason (3 to 500 characters).";
-      return;
-    }
-
-    await act(async () => {
-      const r = await sendReview(kind, item, "reject", note);
-      if (!r.ok) {
-        $("ad-reject-error").textContent = r.error;
-        $("ad-reject-error").style.display = "block";
-        return;
-      }
-      $("ad-reject").close();
-      toast(`${name} rejected. The vendor will see your reason.`);
-      await loadAll();
-      render();
-    });
-  };
-
-  $("ad-reject").showModal();
-}
-
-
-// ---------------------------------------------------------------------
-// Wiring
-// ---------------------------------------------------------------------
-function wire() {
-  $("ad-tabs").addEventListener("click", (event) => {
-    const btn = event.target.closest("[data-tab]");
-    if (!btn) return;
-    state.tab = btn.dataset.tab;
-    render();
-  });
-
-  $("ad-list").addEventListener("click", (event) => {
-    const btn = event.target.closest("[data-act]");
-    if (!btn) return;
-
-    const act = btn.dataset.act;
-    if (act === "approve-store" || act === "reject-store") {
-      const store = state.stores.find((s) => s.id === btn.dataset.id);
-      if (!store) return;
-      act === "approve-store" ? onApprove("store", store) : onReject("store", store);
-    } else {
-      const item = state.products[Number(btn.dataset.i)];
-      if (!item) return;
-      act === "approve-product" ? onApprove("product", item) : onReject("product", item);
-    }
-  });
-}
+        ? { title: `Approve this edit to
