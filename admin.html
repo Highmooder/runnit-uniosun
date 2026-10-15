@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — Runnit Uniosun</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/variables.css" />
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/pages/vendor-products.css" />
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav-bar">
+      <a href="admin.html" class="logo">Runn<span>it</span></a>
+      <button type="button" class="link-btn" id="signout-btn">Sign out</button>
+    </div>
+  </header>
+
+  <main id="main-content">
+    <section class="listing-header">
+      <div class="container">
+        <h1>Review</h1>
+        <p>Nothing goes live until you approve it: first the store, then each product.</p>
+      </div>
+    </section>
+
+    <section class="listing-results">
+      <div class="container">
+
+        <p class="vp-loading" id="ad-loading">Loading…</p>
+
+        <div id="ad-app" style="display:none;">
+          <div class="form-submit-error" id="ad-error" role="alert"></div>
+          <div class="filter-chips vp-filters" id="ad-tabs" role="group" aria-label="Sections"></div>
+          <div class="vp-list" id="ad-list"></div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <!-- Reject, with a reason the vendor will see -->
+  <dialog id="ad-reject" class="vp-dialog vp-dialog--small" aria-labelledby="ad-reject-title">
+    <form id="ad-reject-form" novalidate>
+      <h2 id="ad-reject-title">Reject</h2>
+      <p id="ad-reject-target"></p>
+      <div class="form-group">
+        <label for="ad-reject-note">Reason (the vendor will see this)</label>
+        <textarea id="ad-reject-note" rows="3" maxlength="500"></textarea>
+        <span class="field-error" id="ad-reject-note-error"></span>
+      </div>
+      <div class="form-submit-error" id="ad-reject-error" role="alert"></div>
+      <div class="vp-dialog__actions">
+        <button type="button" class="btn btn-outline" id="ad-reject-cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="ad-reject-submit">Reject</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Confirm approve -->
+  <dialog id="vp-confirm" class="vp-dialog vp-dialog--small" aria-labelledby="vp-confirm-title">
+    <h2 id="vp-confirm-title"></h2>
+    <p id="vp-confirm-body"></p>
+    <div class="vp-dialog__actions">
+      <button type="button" class="btn btn-outline" id="vp-confirm-cancel">Cancel</button>
+      <button type="button" class="btn btn-primary" id="vp-confirm-ok">Confirm</button>
+    </div>
+  </dialog>
+
+  <div class="vp-toast" id="vp-toast" role="status" aria-live="polite" hidden></div>
+
+  <script type="module" src="js/pages/admin.js"></script>
+</body>
+</html>
