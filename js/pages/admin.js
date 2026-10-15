@@ -368,4 +368,109 @@ async function onApprove(kind, item) {
     kind === "store"
       ? { title: `Approve ${name}?`, body: "The store is marked verified. Its approved products become visible to students." }
       : item.kind === "edit"
-        ? { title: `Approve this edit to
+        ? { title: `Approve this edit to ${name}?`, body: "The changes replace the live version straight away." }
+        : { title: `Approve ${name}?`, body: "It becomes visible to students right away, as long as its store is approved." };
+
+  const ok = await confirmDialog({ ...copy, okLabel: "Approve" });
+  if (!ok) return;
+
+  await act(async () => {
+    const r = await sendReview(kind, item, "approve", null);
+    if (!r.ok) return toast(r.error, true);
+    toast(`${name} approved.`);
+    await loadAll();
+    render();
+  });
+}
+
+function onReject(kind, item) {
+  const name = nameOf(kind, item);
+  $("ad-reject-title").textContent = `Reject ${name}?`;
+  $("ad-reject-target").textContent = kind === "store" ? "The vendor sees your reason on their page." : "The vendor sees your reason next to the product.";
+  $("ad-reject-note").value = "";
+  $("ad-reject-note").classList.remove("has-error");
+  $("ad-reject-note-error").textContent = "";
+  $("ad-reject-error").style.display = "none";
+  $("ad-reject-cancel").onclick = () => $("ad-reject").close();
+
+  $("ad-reject-form").onsubmit = async (event) => {
+    event.preventDefault();
+    if (state.busy) return;
+    $("ad-reject-note").classList.remove("has-error");
+    $("ad-reject-note-error").textContent = "";
+    $("ad-reject-error").style.display = "none";
+
+    const note = $("ad-reject-note").value.trim();
+    if (note.length < 3 || note.length > 500) {
+      $("ad-reject-note").classList.add("has-error");
+      $("ad-reject-note-error").textContent = "Give a short reason (3 to 500 characters).";
+      return;
+    }
+
+    await act(async () => {
+      const r = await sendReview(kind, item, "reject", note);
+      if (!r.ok) {
+        $("ad-reject-error").textContent = r.error;
+        $("ad-reject-error").style.display = "block";
+        return;
+      }
+      $("ad-reject").close();
+      toast(`${name} rejected. The vendor will see your reason.`);
+      await loadAll();
+      render();
+    });
+  };
+
+  $("ad-reject").showModal();
+}
+
+
+// ---------------------------------------------------------------------
+// Wiring
+// ---------------------------------------------------------------------
+function wire() {
+  $("ad-tabs").addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-tab]");
+    if (!btn) return;
+    state.tab = btn.dataset.tab;
+    render();
+  });
+
+  $("ad-list").addEventListener("click", (event) => {
+    // "All products" filter chips
+    const chip = event.target.closest("[data-pfilter]");
+    if (chip) {
+      state.catalogFilter = chip.dataset.pfilter;
+      renderCatalogResults();
+      return;
+    }
+
+    const btn = event.target.closest("[data-act]");
+    if (!btn) return;
+
+    const action = btn.dataset.act;
+    if (action === "approve-store" || action === "reject-store") {
+      const store = state.stores.find((s) => s.id === btn.dataset.id);
+      if (!store) return;
+      action === "approve-store" ? onApprove("store", store) : onReject("store", store);
+    } else {
+      const item = state.products[Number(btn.dataset.i)];
+      if (!item) return;
+      action === "approve-product" ? onApprove("product", item) : onReject("product", item);
+    }
+  });
+
+  // "All products" search box and store filter
+  $("ad-list").addEventListener("input", (event) => {
+    if (event.target.id === "ad-search") {
+      state.search = event.target.value;
+      renderCatalogResults();
+    }
+  });
+  $("ad-list").addEventListener("change", (event) => {
+    if (event.target.id === "ad-store") {
+      state.storeFilter = event.target.value;
+      renderCatalogResults();
+    }
+  });
+}
