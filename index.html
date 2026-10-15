@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in — Runnit Uniosun</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="css/variables.css" />
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/components.css" />
+  <link rel="stylesheet" href="css/pages/account.css" />
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container nav-bar">
+      <a href="index.html" class="logo">Runn<span>it</span></a>
+    </div>
+  </header>
+
+  <main id="main-content">
+    <div class="container">
+
+      <p class="account-loading" id="login-loading">Loading…</p>
+
+      <!-- Signed out: sign in / create account -->
+      <section class="account-card" id="auth-view" style="display:none;">
+        <h1>Vendor portal</h1>
+        <p class="account-card__lead">Sign in to list your products and manage your stock on Runnit Uniosun.</p>
+
+        <div class="account-tabs" role="tablist" aria-label="Account options">
+          <button type="button" role="tab" id="tab-signin" aria-controls="signin-panel" aria-selected="true" data-auth-tab="signin">Sign in</button>
+          <button type="button" role="tab" id="tab-signup" aria-controls="signup-panel" aria-selected="false" data-auth-tab="signup">Create account</button>
+        </div>
+
+        <div role="tabpanel" id="signin-panel" aria-labelledby="tab-signin">
+          <form id="signin-form" novalidate>
+            <div class="form-group">
+              <label for="signin-email">Email</label>
+              <input type="email" id="signin-email" autocomplete="username" />
+              <span class="field-error" id="signin-email-error"></span>
+            </div>
+            <div class="form-group">
+              <label for="signin-password">Password</label>
+              <input type="password" id="signin-password" autocomplete="current-password" />
+              <span class="field-error" id="signin-password-error"></span>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block" id="signin-submit">Sign in</button>
+            <div class="form-submit-error" id="signin-error" role="alert"></div>
+          </form>
+        </div>
+
+        <div role="tabpanel" id="signup-panel" aria-labelledby="tab-signup" hidden>
+          <form id="signup-form" novalidate>
+            <div class="form-group">
+              <label for="signup-name">Full name</label>
+              <input type="text" id="signup-name" autocomplete="name" />
+              <span class="field-error" id="signup-name-error"></span>
+            </div>
+            <div class="form-group">
+              <label for="signup-phone">Phone number</label>
+              <input type="tel" id="signup-phone" autocomplete="tel" placeholder="080..." />
+              <span class="field-error" id="signup-phone-error"></span>
+            </div>
+            <div class="form-group">
+              <label for="signup-email">Email</label>
+              <input type="email" id="signup-email" autocomplete="email" />
+              <span class="field-error" id="signup-email-error"></span>
+            </div>
+            <div class="form-group">
+              <label for="signup-password">Password</label>
+              <input type="password" id="signup-password" autocomplete="new-password" />
+              <span class="form-hint">At least 8 characters.</span>
+              <span class="field-error" id="signup-password-error"></span>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block" id="signup-submit">Create account</button>
+            <div class="form-submit-error" id="signup-error" role="alert"></div>
+          </form>
+        </div>
+      </section>
+
+      <!-- Signed up, waiting for the email link (only if email confirmation is on) -->
+      <section class="account-card" id="confirm-view" style="display:none;">
+        <h1>Check your email</h1>
+        <p>We sent a confirmation link to <strong id="confirm-email"></strong>. Open it to finish creating your account.</p>
+        <button type="button" class="btn btn-outline" id="confirm-back">Back to sign in</button>
+      </section>
+
+      <!-- Signed in, but not linked to a store yet -->
+      <section class="account-card" id="waiting-view" style="display:none;">
+        <h1>Almost there</h1>
+        <p>You're signed in as <strong id="waiting-email"></strong>, but this account isn't linked to a store yet. Once Runnit Uniosun links it, you can list products here.</p>
+        <button type="button" class="btn btn-primary btn-block" id="recheck-btn">Check again</button>
+        <button type="button" class="link-btn" id="signout-btn">Sign out</button>
+      </section>
+
+    </div>
+  </main>
+
+  <script type="module" src="js/pages/login.js"></script>
+</body>
+</html>
