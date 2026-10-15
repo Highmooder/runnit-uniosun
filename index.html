@@ -90,11 +90,59 @@
         <button type="button" class="btn btn-outline" id="confirm-back">Back to sign in</button>
       </section>
 
-      <!-- Signed in, but not linked to a store yet -->
-      <section class="account-card" id="waiting-view" style="display:none;">
-        <h1>Almost there</h1>
-        <p>You're signed in as <strong id="waiting-email"></strong>, but this account isn't linked to a store yet. Once Runnit Uniosun links it, you can list products here.</p>
-        <button type="button" class="btn btn-primary btn-block" id="recheck-btn">Check again</button>
+      <!-- Signed in, no store yet: set up your store -->
+      <section class="account-card" id="store-view" style="display:none;">
+        <h1>Set up your store</h1>
+        <p class="account-card__lead">Tell us about your store. You can start adding products right after.</p>
+
+        <div class="account-banner" role="note">
+          Nothing goes live automatically. Runnit Uniosun reviews your store first, then every product you add, before students can see them.
+        </div>
+
+        <form id="store-form" novalidate>
+          <div class="form-group">
+            <label for="store-name">Store name</label>
+            <input type="text" id="store-name" maxlength="120" />
+            <span class="field-error" id="store-name-error"></span>
+          </div>
+          <div class="form-group">
+            <label for="store-category">Category</label>
+            <select id="store-category">
+              <option value="">Choose a category</option>
+            </select>
+            <span class="field-error" id="store-category-error"></span>
+          </div>
+          <div class="form-group">
+            <label for="store-location">Where on campus are you?</label>
+            <input type="text" id="store-location" maxlength="200" placeholder="e.g. Hostel B, behind the faculty building" />
+            <span class="field-error" id="store-location-error"></span>
+          </div>
+          <div class="form-group">
+            <label for="store-owner">Your full name</label>
+            <input type="text" id="store-owner" autocomplete="name" />
+            <span class="field-error" id="store-owner-error"></span>
+          </div>
+          <div class="form-group">
+            <label for="store-phone">Phone number</label>
+            <input type="tel" id="store-phone" autocomplete="tel" placeholder="080..." />
+            <span class="field-error" id="store-phone-error"></span>
+          </div>
+          <div class="form-group">
+            <label for="store-whatsapp">WhatsApp number (optional)</label>
+            <input type="tel" id="store-whatsapp" placeholder="080..." />
+            <span class="form-hint">Leave empty if it's the same as your phone number.</span>
+            <span class="field-error" id="store-whatsapp-error"></span>
+          </div>
+          <div class="form-group">
+            <label for="store-description">What do you sell?</label>
+            <textarea id="store-description" rows="4" maxlength="1000"></textarea>
+            <span class="form-hint">10 to 1,000 characters.</span>
+            <span class="field-error" id="store-description-error"></span>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" id="store-submit">Submit store</button>
+          <div class="form-submit-error" id="store-error" role="alert"></div>
+        </form>
+
         <button type="button" class="link-btn" id="signout-btn">Sign out</button>
       </section>
 
